@@ -1,0 +1,9 @@
+node_modules/
+.env
+.next/
+dist/
+*.log
+docker/ssl/*.pem
+docker/ssl/*.key
+/tmp/torflix-cache/
+.DS_Store
