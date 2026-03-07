@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { authenticateToken as authMiddleware } from '../auth/auth.middleware.js';
+import { adminMiddleware } from '../middleware/admin.middleware.js';
 import { v4 as uuidv4 } from 'uuid';
 import { login } from '../auth/auth.service.js';
 
