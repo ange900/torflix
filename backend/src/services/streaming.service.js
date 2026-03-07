@@ -29,9 +29,9 @@ class StreamingEngine extends EventEmitter {
       fs.mkdirSync(CACHE_DIR, { recursive: true });
     }
 
-    this.client = new WebTorrent({
+    this.client = new WebTorrent({ dht: false, lsd: false, natUpnp: false, natPmp: false,
       maxConns: 100,
-      uploadLimit: 1024 * 100, // 100 KB/s upload limit
+      uploadLimit: 0,
       downloadLimit: -1, // Unlimited download
       path: CACHE_DIR,
     });

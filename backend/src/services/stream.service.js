@@ -19,7 +19,7 @@ async function getClient() {
       const mod = await import('webtorrent');
       WebTorrent = mod.default || mod;
     }
-    client = new WebTorrent({ maxConns: 100, uploadLimit: 1024 * 512, torrentPort: 6881, dhtPort: 6882 });
+    client = new WebTorrent({ maxConns: 50, uploadLimit: 0, dht: false, lsd: false, natUpnp: false, natPmp: false });
     client.on('error', (err) => console.error('[WebTorrent] Error:', err.message));
     console.log('[WebTorrent] Client initialized');
   }
