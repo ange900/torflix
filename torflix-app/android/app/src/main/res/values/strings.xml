@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TorFlix</string>
+    <string name="title_activity_main">TorFlix</string>
+    <string name="package_name">com.torflix.app</string>
+    <string name="custom_url_scheme">com.torflix.app</string>
+</resources>

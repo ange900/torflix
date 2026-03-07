@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="19.2" fill="#0a0a0a"/>
+  <rect x="19.2" y="32" width="15.36" height="64" rx="3.84" fill="#e50914"/>
+  <polygon points="44.8,32 96,64 44.8,96" fill="#e50914"/>
+  <text x="64" y="117.76" font-family="Arial,sans-serif" font-size="14.08" font-weight="bold" fill="white" text-anchor="middle">TorFlix</text>
+</svg>

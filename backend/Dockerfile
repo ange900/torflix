@@ -1,14 +1,8 @@
-FROM node:20-alpine
-
-RUN apk add --no-cache ffmpeg python3 make g++
-
+FROM node:20-slim
 WORKDIR /app
-
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm ci --production
-
+RUN npm install
 COPY . .
-
 EXPOSE 4000
-
-CMD ["node", "src/server.js"]
+CMD ["npm", "start"]

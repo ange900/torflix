@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface2: #1e1e1e;
+  --color-red: #e50914;
+  --color-red-hover: #f6121d;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+body { background: var(--color-bg); color: #fff; font-family: system-ui, sans-serif; margin: 0; }
+::-webkit-scrollbar { display: none; }
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Theme colors */
+:root, [data-theme="red"] { --accent: #e50914; --accent-rgb: 229,9,20; }
+[data-theme="blue"] { --accent: #2563eb; --accent-rgb: 37,99,235; }
+[data-theme="green"] { --accent: #16a34a; --accent-rgb: 22,163,74; }
+[data-theme="purple"] { --accent: #9333ea; --accent-rgb: 147,51,234; }
+[data-theme="amber"] { --accent: #d97706; --accent-rgb: 217,119,6; }
+[data-theme="pink"] { --accent: #ec4899; --accent-rgb: 236,72,153; }
+[data-theme="cyan"] { --accent: #06b6d4; --accent-rgb: 6,182,212; }

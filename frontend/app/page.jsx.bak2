@@ -1,0 +1,106 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import MainLayout from '@/components/layout/MainLayout';
+import HeroBanner from '@/components/homepage/HeroBanner';
+import ContentRow from '@/components/homepage/ContentRow';
+
+export default function HomePage() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const router = useRouter();
+
+  useEffect(() => { fetchHomepage(); }, []);
+
+  const fetchHomepage = async () => {
+    try {
+      setLoading(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
+      const res = await fetch('/api/homepage', {
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const homeData = await res.json();
+      // Fetch continue watching
+      
+      if (token) {
+        try {
+          const cwRes = await fetch('/api/playback/continue?limit=10', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (cwRes.ok) {
+            const cw = await cwRes.json();
+            if (cw.results?.length > 0) {
+              homeData.sections.unshift({
+                id: 'continue-watching',
+                title: '▶ Reprendre la lecture',
+                icon: '⏯️',
+                type: 'continue',
+                items: cw.results.map(r => ({
+                  tmdb_id: r.tmdb_id,
+                  type: r.content_type,
+                  title: r.title,
+                  poster: r.poster_path ? `https://image.tmdb.org/t/p/w342${r.poster_path}` : null,
+                  backdrop: r.backdrop_path ? `https://image.tmdb.org/t/p/w780${r.backdrop_path}` : null,
+                  progress: (r.progress || 0) / 100,
+                  duration: r.duration_seconds,
+                  season: r.season_number,
+                  episode: r.episode_number,
+                  remainingMinutes: r.remainingMinutes,
+                  formattedPosition: r.formattedPosition,
+                }))
+              });
+            }
+          }
+        } catch(e) { console.log('Continue watching:', e); }
+      }
+      setData(homeData);
+    } catch (err) { console.error('Homepage:', err); setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleCardClick = (item) => router.push(`/player/${item.type || item.media_type}/${item.tmdb_id || item.id}`);
+
+  if (loading) return (
+    <MainLayout>
+      <div>
+        <div className="h-[50vh] bg-zinc-900 animate-pulse rounded-b-2xl" />
+        {[1,2,3].map(i => (
+          <div key={i} className="px-[3%] py-5">
+            <div className="w-48 h-6 bg-zinc-800 rounded mb-4 animate-pulse" />
+            <div className="flex gap-2.5 overflow-hidden">
+              {[1,2,3,4,5,6].map(j => <div key={j} className="flex-shrink-0 w-[160px] aspect-[2/3] bg-zinc-800 rounded-md animate-pulse" />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </MainLayout>
+  );
+
+  if (error) return (
+    <MainLayout>
+      <div className="min-h-[60vh] flex items-center justify-center text-white">
+        <div className="text-center max-w-md px-8">
+          <h2 className="text-2xl font-bold mb-2">Impossible de charger le contenu</h2>
+          <p className="text-white/50 mb-6">{error}</p>
+          <button onClick={fetchHomepage} className="px-8 py-3 bg-rose-600 text-white font-semibold rounded-md hover:bg-rose-700 transition-all">Réessayer</button>
+        </div>
+      </div>
+    </MainLayout>
+  );
+
+  if (!data) return null;
+
+  return (
+    <MainLayout>
+      <div className="text-white overflow-hidden">
+        {data.hero?.length > 0 && <HeroBanner items={data.hero} />}
+        <div className="pt-6 pb-16">
+          {data.sections.map(section => <ContentRow key={section.id} section={section} onCardClick={handleCardClick} />)}
+        </div>
+      </div>
+    </MainLayout>
+  );
+}

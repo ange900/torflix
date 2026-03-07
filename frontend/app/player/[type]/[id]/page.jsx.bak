@@ -1,0 +1,160 @@
+'use client';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import TorrentList from '@/components/content/TorrentList';
+
+const BACKEND = typeof window !== 'undefined' ? window.location.origin.replace(':3000', ':4000') : '';
+
+export default function PlayerPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { type, id } = params;
+  const season = searchParams.get('season');
+  const episode = searchParams.get('episode');
+  const videoRef = useRef(null);
+
+  const [content, setContent] = useState(null);
+  const [torrents, setTorrents] = useState([]);
+  const [selectedTorrent, setSelectedTorrent] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [streamSession, setStreamSession] = useState(null);
+  const [phase, setPhase] = useState('loading');
+  const [error, setError] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/${type === 'tv' ? 'tv' : 'movies'}/${id}`);
+        if (res.ok) {
+          const d = await res.json();
+          setContent(d);
+          let q = d.title || d.name;
+          if (type === 'tv' && season && episode) q += ` S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}`;
+          search(q, type === 'tv' ? 'TV' : 'Movies');
+        }
+      } catch (err) { console.error(err); }
+    })();
+  }, [id, type]);
+
+  async function search(query, category) {
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/torrents/search?q=${encodeURIComponent(query)}&category=${category}`);
+      if (res.ok) {
+        const d = await res.json();
+        setTorrents(d.results || []);
+        if (d.best?.magnet) {
+          const bi = (d.results||[]).findIndex(t => t.title === d.best.title);
+          setSelectedTorrent(d.best);
+          setSelectedIndex(bi >= 0 ? bi : 0);
+        }
+      }
+    } catch {}
+    setSearching(false);
+    setPhase('select');
+  }
+
+  async function startStream() {
+    if (!selectedTorrent?.magnet) { setError("Pas de magnet"); return; }
+    setPhase('buffering');
+    setError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/stream/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ magnet: selectedTorrent.magnet, downloadUrl: selectedTorrent.downloadUrl }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const d = await res.json();
+      setStreamSession(d);
+      // Go directly to playing - the video element handles buffering
+      setPhase('playing');
+    } catch (err) { setError(err.message); setPhase('error'); }
+  }
+
+  useEffect(() => {
+    if (phase === 'playing' && streamSession && videoRef.current) {
+      const url = `${BACKEND}/api/stream/${streamSession.sessionId}/video`;
+      videoRef.current.src = url;
+      videoRef.current.load();
+      const playPromise = videoRef.current.play();
+      if (playPromise) playPromise.catch(() => {});
+    }
+  }, [phase, streamSession]);
+
+  useEffect(() => {
+    return () => {
+      if (streamSession?.sessionId) {
+        fetch(`${BACKEND}/api/stream/${streamSession.sessionId}`, { method: 'DELETE' }).catch(() => {});
+      }
+    };
+  }, [streamSession]);
+
+  const bd = content?.backdrop_path ? `https://image.tmdb.org/t/p/original${content.backdrop_path}` : null;
+  const title = content?.title || content?.name || 'Chargement...';
+  const sub = type==='tv'&&season&&episode ? `S${season}E${episode}` : content?.release_date?.slice(0,4)||'';
+
+  if (phase === 'playing' && streamSession) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col">
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-4">
+          <button onClick={() => {
+            if (streamSession?.sessionId) fetch(`${BACKEND}/api/stream/${streamSession.sessionId}`, { method: 'DELETE' }).catch(() => {});
+            setPhase('select'); setStreamSession(null);
+          }} className="bg-black/60 hover:bg-black text-white w-10 h-10 rounded-full flex items-center justify-center text-xl">←</button>
+          <p className="text-white font-bold">{title} <span className="text-zinc-400 font-normal text-sm">{sub}</span></p>
+        </div>
+        <video ref={videoRef} className="w-full h-full" controls autoPlay playsInline />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black">
+      {bd && <div className="fixed inset-0 z-0"><img src={bd} alt="" className="w-full h-full object-cover opacity-20"/><div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/40"/></div>}
+      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
+        <button onClick={() => router.push('/')} className="text-zinc-400 hover:text-white mb-6 flex items-center gap-2">← Retour</button>
+        <div className="flex gap-6 mb-8">
+          {content?.poster_path && <img src={`https://image.tmdb.org/t/p/w300${content.poster_path}`} alt={title} className="w-32 md:w-48 rounded-xl shadow-2xl flex-shrink-0"/>}
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{title}</h1>
+            {sub && <p className="text-zinc-400 text-lg mb-3">{sub}</p>}
+            {content?.overview && <p className="text-zinc-400 text-sm line-clamp-3 max-w-2xl">{content.overview}</p>}
+            {content?.vote_average>0 && <p className="text-yellow-400 mt-2">★ {content.vote_average.toFixed(1)}/10</p>}
+          </div>
+        </div>
+
+        {phase==='buffering' && (
+          <div className="flex flex-col items-center py-16">
+            <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4"/>
+            <p className="text-white text-xl">Connexion aux pairs...</p>
+          </div>
+        )}
+
+        {phase==='error' && (
+          <div className="text-center py-8 mb-6">
+            <p className="text-red-400 text-lg mb-4">❌ {error}</p>
+            <button onClick={() => {setPhase('select');setError(null);}} className="px-6 py-3 bg-zinc-800 text-white rounded-xl">Réessayer</button>
+          </div>
+        )}
+
+        {(phase==='select'||phase==='loading') && (
+          <>
+            {selectedTorrent?.magnet && (
+              <button onClick={startStream} className="w-full md:w-auto mb-8 px-8 py-4 bg-red-600 hover:bg-red-500 text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-3 shadow-lg">
+                ▶ Lancer la lecture
+                <span className="text-sm font-normal opacity-80">[{selectedTorrent.language}] [{selectedTorrent.quality}] — {selectedTorrent.seeders} seeds</span>
+              </button>
+            )}
+            {selectedTorrent && !selectedTorrent.magnet && (
+              <div className="mb-6 p-4 bg-yellow-900/30 border border-yellow-600/30 rounded-xl text-yellow-300 text-sm">⚠ Pas de magnet. Choisissez un autre torrent.</div>
+            )}
+            <TorrentList torrents={torrents} onSelect={(t,i) => {setSelectedTorrent(t);setSelectedIndex(i);}} selectedIndex={selectedIndex} isLoading={searching||phase==='loading'}/>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

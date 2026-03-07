@@ -1,80 +1,86 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const cookieParser = require('cookie-parser');
-const { createServer } = require('http');
-
-const authRoutes = require('./routes/auth');
-const moviesRoutes = require('./routes/movies');
-const searchRoutes = require('./routes/search');
-const torrentRoutes = require('./routes/torrents');
-const streamRoutes = require('./routes/stream');
-const progressRoutes = require('./routes/progress');
-const accountsRoutes = require('./routes/accounts');
-const { initDB } = require('./models/db');
-const { initRedis } = require('./utils/redis');
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import { initializeDatabase } from './config/database.js';
+import { connectRedis } from './config/redis.js';
+import authRoutes from './auth/auth.routes.js';
+import otaRoutes from './routes/ota.js';
+import authTvRoutes from './routes/auth-tv.js';
+import moviesRoutes from './routes/movies.routes.js';
+import tvRoutes from './routes/tv.routes.js';
+import torrentRoutes from './routes/torrent.routes.js';
+import streamRoutes from './routes/stream.routes.js';
+import playbackRoutes from './routes/playback.routes.js';
+import notificationsRoutes from './routes/notifications.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import favoritesRoutes from './routes/favorites.routes.js';
+import statsRoutes from './routes/stats.routes.js';
+import ratingsRoutes from './routes/ratings.routes.js';
+import trackerRoutes from './routes/tracker.routes.js';
+import twofaRoutes from './routes/twofa.routes.js';
+import homepageRoutes from './routes/homepage.routes.js';
+import searchRoutes from './routes/search.routes.js';
+import { notFound, errorHandler } from './middleware/error.middleware.js';
 
 const app = express();
-const server = createServer(app);
 const PORT = process.env.PORT || 4000;
 
-// ── Middleware ──
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(compression());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(helmet({ crossOriginResourcePolicy: false, contentSecurityPolicy: false }));
+app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"], credentials: false }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan('short'));
 
-// ── Health check ──
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', name: 'TorFlix API', version: '1.0.0' });
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ── Routes ──
+// API routes - AVANT le 404 handler
 app.use('/api/auth', authRoutes);
+app.use('/api/ota', otaRoutes);
+app.use('/api/auth/tv', authTvRoutes);
 app.use('/api/movies', moviesRoutes);
-app.use('/api/search', searchRoutes);
+app.use('/api/tv', tvRoutes);
 app.use('/api/torrents', torrentRoutes);
 app.use('/api/stream', streamRoutes);
-app.use('/api/progress', progressRoutes);
-app.use('/api/accounts', accountsRoutes);
+app.use('/api/playback', playbackRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/ratings', ratingsRoutes);
+app.use('/api/tracker', trackerRoutes);
+app.use('/api/2fa', twofaRoutes);
+app.use('/api/homepage', homepageRoutes);
+import watchPartyRoutes from './routes/watchparty.routes.js';
+import preferencesRoutes from './routes/preferences.routes.js';
+app.use('/api/watch-party', watchPartyRoutes);
+app.use('/api/preferences', preferencesRoutes);
+app.use('/api/search', searchRoutes);
 
-// ── Error handler ──
-app.use((err, req, res, next) => {
-  console.error('[ERROR]', err.message);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
-  });
-});
+// 404 + error handlers - APRÈS les routes
+app.use(notFound);
+app.use(errorHandler);
 
-// ── Start ──
-async function start() {
+async function startServer() {
   try {
-    await initDB();
-    console.log('✅ PostgreSQL connected');
-
-    await initRedis();
-    console.log('✅ Redis connected');
-
-    server.listen(PORT, () => {
-      console.log(`
-  ╔══════════════════════════════════════════╗
-  ║          TorFlix Backend API             ║
-  ║       🎬 http://localhost:${PORT}           ║
-  ╚══════════════════════════════════════════╝
-      `);
+    console.log('Initializing database...');
+    await initializeDatabase();
+    console.log('Connecting to Redis...');
+    await connectRedis();
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
-  } catch (err) {
-    console.error('❌ Startup failed:', err.message);
+  } catch (error) {
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
 
-start();
+process.on('SIGTERM', async () => { const { redisClient } = await import('./config/redis.js'); await redisClient.quit(); process.exit(0); });
+process.on('SIGINT', async () => { const { redisClient } = await import('./config/redis.js'); await redisClient.quit(); process.exit(0); });
+
+startServer();
+export default app;

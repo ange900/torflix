@@ -1,97 +1,125 @@
-version: '3.9'
-
 services:
-  # ── PostgreSQL Database ──
-  db:
-    image: postgres:16-alpine
-    container_name: torflix-db
-    restart: unless-stopped
+  postgres:
+    image: postgres:15-alpine
+    container_name: torflix-postgres
     environment:
+      POSTGRES_USER: torflixuser
+      POSTGRES_PASSWORD: torflixpass
       POSTGRES_DB: torflix
-      POSTGRES_USER: ${DB_USER:-torflix}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-torflix_secret_2026}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./backend/src/models/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U torflix"]
-      interval: 5s
-      timeout: 3s
+      test: ["CMD-SHELL", "pg_isready -U torflixuser -d torflix"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+    networks:
+      - torflix-network
 
-  # ── Redis Cache ──
   redis:
     image: redis:7-alpine
     container_name: torflix-redis
-    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
-      - redisdata:/data
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
+    networks:
+      - torflix-network
 
-  # ── Backend API ──
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: torflix-backend
-    restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: postgresql://${DB_USER:-torflix}:${DB_PASSWORD:-torflix_secret_2026}@db:5432/torflix
+      DATABASE_URL: postgresql://torflixuser:torflixpass@postgres:5432/torflix
+      TMDB_API_KEY: af8e4dcd14c8e141b9757afaa86ccd05
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-change_me_in_production_very_long_secret_key}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_very_long}
-      TMDB_API_KEY: ${TMDB_API_KEY:-your_tmdb_api_key}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-32_chars_encryption_key_here_ok}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-key-change-in-production-min-64-chars-long}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-key-change-in-production-min-64-chars-long}
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      FRONTEND_URL: http://localhost:3000
+      JACKETT_URL: http://jackett:9117
+      JACKETT_API_KEY: 1gu7miltp8zwwoxakpyho2qelhsna0vg
     ports:
       - "4000:4000"
-    volumes:
-      - torrent_cache:/tmp/torflix-cache
+      - "6881:6881"
+      - "6881:6881/udp"
+      - "6882:6882"
+      - "6882:6882/udp"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /app/node_modules
+    networks:
+      - torflix-network
+    restart: unless-stopped
 
-  # ── Frontend ──
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: torflix-frontend
-    restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:4000/api
+      NEXT_PUBLIC_API_URL: http://localhost:4000
     ports:
       - "3000:3000"
     depends_on:
       - backend
-
-  # ── Nginx Reverse Proxy ──
-  nginx:
-    image: nginx:alpine
-    container_name: torflix-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
-      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - frontend
-      - backend
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - torflix-network
+    restart: unless-stopped
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: torflix-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - jackett_data:/config
+    ports:
+      - "9117:9117"
+    networks:
+      - torflix-network
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: torflix-flaresolverr
+    environment:
+      - LOG_LEVEL=info
+    ports:
+      - "8191:8191"
+    networks:
+      - torflix-network
+    restart: unless-stopped
 
 volumes:
-  pgdata:
-  redisdata:
-  torrent_cache:
+  postgres_data:
+  redis_data:
+  jackett_data:
+
+networks:
+  torflix-network:
+    driver: bridge

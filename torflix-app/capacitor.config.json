@@ -1,0 +1,12 @@
+{
+  "appId": "com.torflix.app",
+  "appName": "TorFlix",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

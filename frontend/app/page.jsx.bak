@@ -1,0 +1,67 @@
+'use client';
+import { useEffect, useState } from 'react';
+import MainLayout from '@/components/layout/MainLayout';
+import HeroBanner from '@/components/ui/HeroBanner';
+import ContinueWatching from '@/components/content/ContinueWatching';
+import ContentRow from '@/components/ui/ContentRow';
+import { SkeletonRow } from '@/components/ui/Skeleton';
+
+export default function HomePage() {
+  const [data, setData] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const endpoints = {
+        trendingMovies: '/api/movies/trending',
+        popularMovies: '/api/movies/popular',
+        trendingTV: '/api/tv/trending',
+        popularTV: '/api/tv/popular',
+        topRated: '/api/movies/top-rated',
+        upcomingMovies: '/api/movies/upcoming',
+        topTV: '/api/tv/top-rated',
+      };
+      const results = await Promise.allSettled(
+        Object.values(endpoints).map(url => fetch(url).then(r => r.json()))
+      );
+      const keys = Object.keys(endpoints);
+      const d = {};
+      results.forEach((r, i) => {
+        d[keys[i]] = r.status === 'fulfilled' ? (r.value.results || []) : [];
+      });
+      setData(d);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const heroItems = (data.trendingMovies || []).slice(0, 6).map(m => ({ ...m, media_type: 'movie' }));
+
+  return (
+    <MainLayout>
+      {loading ? (
+        <div className="skeleton w-full h-[35vh] sm:h-[40vh] lg:h-[50vh] rounded-none" />
+      ) : (
+        <HeroBanner items={heroItems} />
+      )}
+      <div className="px-4 md:px-8 lg:px-10 pb-20 lg:pb-16 -mt-8 relative z-10 space-y-2">
+        <ContinueWatching />
+        {loading ? (
+          <>
+            <SkeletonRow /><SkeletonRow /><SkeletonRow />
+          </>
+        ) : (
+          <>
+            <ContentRow title="Films Tendance" icon="🔥" items={data.trendingMovies} type="movie" />
+            <ContentRow title="Séries Tendance" icon="📺" items={data.trendingTV} type="tv" />
+            <ContentRow title="Films Populaires" icon="🎬" items={data.popularMovies} type="movie" />
+            <ContentRow title="Séries Populaires" icon="⭐" items={data.popularTV} type="tv" />
+            <ContentRow title="Les Mieux Notés" icon="🏆" items={data.topRated} type="movie" />
+            <ContentRow title="Prochainement" icon="📅" items={data.upcomingMovies} type="movie" />
+            <ContentRow title="Meilleures Séries" icon="👑" items={data.topTV} type="tv" />
+          </>
+        )}
+      </div>
+    </MainLayout>
+  );
+}
