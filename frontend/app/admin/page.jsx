@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { adminApi } from '@/lib/admin';
+import AdminQRAuth from '@/components/admin/AdminQRAuth';
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B';
@@ -159,6 +160,7 @@ export default function AdminPage() {
           <Tab active={tab === 'users'} onClick={() => setTab('users')} icon={Users} label="Utilisateurs" count={usersTotal} />
           <Tab active={tab === 'streams'} onClick={() => setTab('streams')} icon={Activity} label="Streams" count={streams.length} />
           <Tab active={tab === 'system'} onClick={() => setTab('system')} icon={Server} label="Système" />
+          <Tab active={tab === 'tv'} onClick={() => setTab('tv')} icon={Shield} label="TV / QR" />
         </div>
 
         {/* ==================== DASHBOARD TAB ==================== */}
@@ -318,6 +320,13 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ==================== TV QR TAB ==================== */}
+        {tab === 'tv' && (
+          <div className="animate-fade-in">
+            <AdminQRAuth />
           </div>
         )}
 

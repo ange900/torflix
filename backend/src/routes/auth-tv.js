@@ -58,3 +58,157 @@ router.post('/validate', async (req, res) => {
 });
 
 export default router;
+
+// ADMIN: Autoriser un user via device code
+router.post('/admin/authorize-device', authMiddleware, adminMiddleware, async (req, res) => {
+  const { deviceCode, userId } = req.body;
+
+  if (!deviceCode) {
+    return res.status(400).json({ error: 'Device code requis' });
+  }
+
+  try {
+    // Chercher la session en attente avec ce code
+    const session = await redis.get(`tv:device:${deviceCode.toUpperCase()}`);
+    if (!session) {
+      return res.status(404).json({ error: 'Code invalide ou expiré' });
+    }
+
+    const sessionData = JSON.parse(session);
+
+    // Associer le userId à la session (soit celui fourni, soit auto-créer)
+    let targetUserId = userId;
+
+    if (!targetUserId) {
+      // Créer un compte invité automatiquement
+      const guestUser = await pool.query(
+        `INSERT INTO users (username, email, password_hash, role)
+         VALUES ($1, $2, $3, 'user') RETURNING id`,
+        [
+          `guest_${deviceCode.toLowerCase()}`,
+          `guest_${deviceCode.toLowerCase()}@torflix.local`,
+          'guest_no_password'
+        ]
+      );
+      targetUserId = guestUser.rows[0].id;
+    }
+
+    // Générer un token JWT pour cet user
+    const token = jwt.sign(
+      { userId: targetUserId, role: 'user' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    // Stocker le token pour que la TV le récupère
+    await redis.setex(`tv:token:${deviceCode.toUpperCase()}`, 300, JSON.stringify({
+      token,
+      userId: targetUserId,
+      authorized: true
+    }));
+
+    // Supprimer la session d'attente
+    await redis.del(`tv:device:${deviceCode.toUpperCase()}`);
+
+    res.json({ success: true, message: 'Appareil autorisé', userId: targetUserId });
+  } catch (err) {
+    console.error('Admin authorize device error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ADMIN: Lister les devices en attente d'autorisation
+router.get('/admin/pending-devices', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const keys = await redis.keys('tv:device:*');
+    const devices = await Promise.all(
+      keys.map(async (key) => {
+        const data = await redis.get(key);
+        const code = key.replace('tv:device:', '');
+        const ttl = await redis.ttl(key);
+        return { code, ttl, ...(data ? JSON.parse(data) : {}) };
+      })
+    );
+    res.json({ devices });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+
+// ADMIN: Autoriser un user via device code
+router.post('/admin/authorize-device', authMiddleware, adminMiddleware, async (req, res) => {
+  const { deviceCode, userId } = req.body;
+
+  if (!deviceCode) {
+    return res.status(400).json({ error: 'Device code requis' });
+  }
+
+  try {
+    // Chercher la session en attente avec ce code
+    const session = await redis.get(`tv:device:${deviceCode.toUpperCase()}`);
+    if (!session) {
+      return res.status(404).json({ error: 'Code invalide ou expiré' });
+    }
+
+    const sessionData = JSON.parse(session);
+
+    // Associer le userId à la session (soit celui fourni, soit auto-créer)
+    let targetUserId = userId;
+
+    if (!targetUserId) {
+      // Créer un compte invité automatiquement
+      const guestUser = await pool.query(
+        `INSERT INTO users (username, email, password_hash, role)
+         VALUES ($1, $2, $3, 'user') RETURNING id`,
+        [
+          `guest_${deviceCode.toLowerCase()}`,
+          `guest_${deviceCode.toLowerCase()}@torflix.local`,
+          'guest_no_password'
+        ]
+      );
+      targetUserId = guestUser.rows[0].id;
+    }
+
+    // Générer un token JWT pour cet user
+    const token = jwt.sign(
+      { userId: targetUserId, role: 'user' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    // Stocker le token pour que la TV le récupère
+    await redis.setex(`tv:token:${deviceCode.toUpperCase()}`, 300, JSON.stringify({
+      token,
+      userId: targetUserId,
+      authorized: true
+    }));
+
+    // Supprimer la session d'attente
+    await redis.del(`tv:device:${deviceCode.toUpperCase()}`);
+
+    res.json({ success: true, message: 'Appareil autorisé', userId: targetUserId });
+  } catch (err) {
+    console.error('Admin authorize device error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ADMIN: Lister les devices en attente d'autorisation
+router.get('/admin/pending-devices', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const keys = await redis.keys('tv:device:*');
+    const devices = await Promise.all(
+      keys.map(async (key) => {
+        const data = await redis.get(key);
+        const code = key.replace('tv:device:', '');
+        const ttl = await redis.ttl(key);
+        return { code, ttl, ...(data ? JSON.parse(data) : {}) };
+      })
+    );
+    res.json({ devices });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
