@@ -9,7 +9,7 @@ export default function AdminQRAuth() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'https://torflix.xyz/api';
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://torfix.xyz/api';
 
   const fetchPending = async () => {
     try {

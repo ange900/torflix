@@ -6,7 +6,7 @@ export default function QrLoginPage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const inputs = useRef([]);
-  const API = process.env.NEXT_PUBLIC_API_URL || 'https://torflix.xyz/api';
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://torfix.xyz/api';
 
   useEffect(() => { inputs.current[0]?.focus(); }, []);
 
