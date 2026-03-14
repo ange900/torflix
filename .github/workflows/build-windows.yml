@@ -27,3 +27,13 @@ jobs:
           name: TorFlix-windows
           path: torflix-app/dist-electron/*.exe
           retention-days: 30
+
+      - name: Deploy to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "torflix-app/dist-electron/TorFlix Setup*.exe"
+          target: "/var/www/html/"
+          strip_components: 3
