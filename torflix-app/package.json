@@ -108,8 +108,9 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "public/icons/icon-512x512.png",
-      "shortcutName": "TorFlix"
+      "installerIcon": "public/icons/icon.ico",
+      "shortcutName": "TorFlix",
+      "uninstallerIcon": "public/icons/icon.ico"
     }
   },
   "homepage": "https://torfix.xyz",
