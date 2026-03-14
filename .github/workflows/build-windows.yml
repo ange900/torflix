@@ -8,6 +8,9 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: torflix-app
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +19,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: torflix-app/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -29,15 +33,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TorFlix-windows
-          path: dist-electron/*.exe
-          retention-days: 7
-
-      - name: Deploy to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "dist-electron/*.exe"
-          target: "/var/www/html/"
-          strip_components: 1
+          path: torflix-app/dist-electron/*.exe
+          retention-days: 30
