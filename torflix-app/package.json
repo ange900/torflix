@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "electron .",
-    "electron:build:win": "vite build && electron-builder --win --x64",
+    "electron:build:win": "vite build && electron-builder --win --x64 --publish never",
     "electron:build:linux": "vite build && electron-builder --linux --x64",
     "electron:build:mac": "vite build && electron-builder --mac"
   },
@@ -112,5 +112,9 @@
       "shortcutName": "TorFlix"
     }
   },
-  "homepage": "https://torfix.xyz"
+  "homepage": "https://torfix.xyz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ange900/torflix"
+  }
 }
